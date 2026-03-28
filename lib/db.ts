@@ -23,7 +23,8 @@ async function blobRead<T>(pathname: string, fallback: T, maxAttempts = 1): Prom
       const blob = blobs.find((b) => b.pathname === pathname);
       if (blob) {
         // Private blobs require Authorization header — getDownloadUrl() does NOT add auth
-        const res = await fetch(blob.url, {
+        // Add timestamp to bust Vercel's CDN cache for this private blob
+        const res = await fetch(`${blob.url}?t=${Date.now()}`, {
           cache: 'no-store',
           headers: { Authorization: `Bearer ${token}` },
         });

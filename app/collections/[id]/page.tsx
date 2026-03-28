@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { updateCollection } from '@/lib/api';
 import type { VocabCollection, VocabItem } from '@/lib/types';
 import DiacriticKeyboard from '@/components/DiacriticKeyboard';
@@ -10,9 +10,7 @@ type Tab = 'manual' | 'upload';
 
 export default function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-
-  const [collection, setCollection] = useState<VocabCollection | null>(null);
+const [collection, setCollection] = useState<VocabCollection | null>(null);
   const [tab, setTab] = useState<Tab>('manual');
   const [loading, setLoading] = useState(true);
 
@@ -61,14 +59,14 @@ export default function CollectionDetailPage() {
         await new Promise((res) => setTimeout(res, delay));
         return load(retries - 1, delay * 1.5);
       }
-      if (!r.ok) { router.push('/collections'); return; }
+      if (!r.ok) { window.location.href = '/collections'; return; }
       const data = await r.json();
       setCollection(data);
       setTitleValue(data.name);
     }
 
     load().finally(() => setLoading(false));
-  }, [id, router]);
+  }, [id]);
 
   useEffect(() => {
     if (renamingTitle) titleRef.current?.focus();
@@ -191,7 +189,7 @@ export default function CollectionDetailPage() {
     <div className="max-w-4xl mx-auto w-full px-4 py-8">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => { router.refresh(); router.push('/collections'); }} className="text-zinc-400 hover:text-white transition-colors text-sm">
+        <button onClick={() => { window.location.href = '/collections'; }} className="text-zinc-400 hover:text-white transition-colors text-sm">
           ← Collections
         </button>
         <span className="text-zinc-600">/</span>

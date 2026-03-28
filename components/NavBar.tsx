@@ -1,6 +1,6 @@
 'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 const links = [
   { href: '/collections', label: 'Collections' },
@@ -10,11 +10,8 @@ const links = [
 
 export default function NavBar() {
   const pathname = usePathname();
-  const router = useRouter();
-
   function navigate(href: string) {
-    router.refresh(); // clear router cache so destination page re-fetches
-    router.push(href);
+    window.location.href = href;
   }
 
   return (
