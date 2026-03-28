@@ -44,14 +44,30 @@ export default function CollectionDetailPage() {
   const [dragOver, setDragOver] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/collections/${id}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (!data) { router.push('/collections'); return; }
-        setCollection(data);
-        setTitleValue(data.name);
-      })
-      .finally(() => setLoading(false));
+    // Use sessionStorage cache if navigating straight from creation (avoids blob list lag)
+    const cached = sessionStorage.getItem(`collection_${id}`);
+    if (cached) {
+      sessionStorage.removeItem(`collection_${id}`);
+      const data = JSON.parse(cached) as VocabCollection;
+      setCollection(data);
+      setTitleValue(data.name);
+      setLoading(false);
+      return;
+    }
+
+    async function load(retries = 4, delay = 400) {
+      const r = await fetch(`/api/collections/${id}`, { cache: 'no-store' });
+      if (r.status === 404 && retries > 0) {
+        await new Promise((res) => setTimeout(res, delay));
+        return load(retries - 1, delay * 1.5);
+      }
+      if (!r.ok) { router.push('/collections'); return; }
+      const data = await r.json();
+      setCollection(data);
+      setTitleValue(data.name);
+    }
+
+    load().finally(() => setLoading(false));
   }, [id, router]);
 
   useEffect(() => {

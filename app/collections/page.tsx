@@ -31,6 +31,8 @@ export default function CollectionsPage() {
     const col = await createCollection(name);
     setNewName('');
     setShowNewForm(false);
+    // Cache so detail page doesn't need to re-fetch immediately (blob list eventual consistency)
+    sessionStorage.setItem(`collection_${col.id}`, JSON.stringify(col));
     router.push(`/collections/${col.id}`);
   }
 
