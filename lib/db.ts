@@ -51,7 +51,7 @@ async function blobWrite(pathname: string, data: unknown): Promise<void> {
 async function localRead<T>(filename: string, fallback: T): Promise<T> {
   const { readFileSync, existsSync, mkdirSync } = await import('fs');
   const { join } = await import('path');
-  const dir = join(process.cwd(), '.data');
+  const dir = process.env.VERCEL ? '/tmp/.data' : join(process.cwd(), '.data');
   const path = join(dir, filename);
   try {
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
@@ -63,14 +63,9 @@ async function localRead<T>(filename: string, fallback: T): Promise<T> {
 }
 
 async function localWrite(filename: string, data: unknown): Promise<void> {
-  if (process.env.VERCEL) {
-    throw new Error(
-      'BLOB_READ_WRITE_TOKEN is not set. Go to your Vercel project → Storage → Create Blob store, link it, then redeploy.'
-    );
-  }
   const { writeFileSync, existsSync, mkdirSync } = await import('fs');
   const { join } = await import('path');
-  const dir = join(process.cwd(), '.data');
+  const dir = process.env.VERCEL ? '/tmp/.data' : join(process.cwd(), '.data');
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, filename), JSON.stringify(data, null, 2), 'utf-8');
 }
