@@ -6,7 +6,7 @@ import NavBar from '@/components/NavBar';
 const inter = Inter({ subsets: ['latin', 'latin-ext'] });
 
 export const metadata: Metadata = {
-  title: 'Vocab Trainer',
+  title: 'Vocab',
   description: 'Slovak–German vocabulary flashcard trainer',
   icons: { icon: '/favicon.svg' },
 };

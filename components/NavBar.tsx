@@ -18,7 +18,7 @@ export default function NavBar() {
     <nav className="bg-zinc-900 border-b border-zinc-800 sticky top-0 z-40">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 flex items-center h-14 gap-6">
         <button onClick={() => navigate('/collections')} className="font-semibold text-lg text-white tracking-tight mr-2">
-          Vocab Trainer
+          Vocab
         </button>
         <div className="flex items-center gap-1">
           {links.map((link) => {

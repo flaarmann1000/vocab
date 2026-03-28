@@ -153,7 +153,7 @@ export default function TrainPage() {
             <div className="flex flex-col gap-2 mb-8">
               {collections.map((col) => (
                 <label key={col.id} className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 cursor-pointer hover:border-zinc-600 transition-colors">
-                  <input type="checkbox" checked={selectedIds.includes(col.id)} onChange={() => toggleCollection(col.id)} className="w-4 h-4 accent-blue-500" />
+                  <input type="checkbox" checked={selectedIds.includes(col.id)} onChange={() => toggleCollection(col.id)} className="w-4 h-4 accent-orange-500" />
                   <span className="flex-1 text-white font-medium">{col.name}</span>
                   <span className="text-sm text-zinc-500">{col.items.length} words</span>
                 </label>
@@ -162,7 +162,7 @@ export default function TrainPage() {
             <button
               onClick={startTraining}
               disabled={selectedIds.length === 0 || collections.filter((c) => selectedIds.includes(c.id)).flatMap((c) => c.items).length === 0}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors text-lg"
+              className="w-full py-3 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors text-lg"
             >
               Start Training
             </button>
@@ -202,7 +202,7 @@ export default function TrainPage() {
           </div>
         </div>
         <div className="flex gap-3">
-          <button onClick={() => { setStatus('selecting'); setCards([]); }} className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-colors">
+          <button onClick={() => { setStatus('selecting'); setCards([]); }} className="px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-xl transition-colors">
             Train Again
           </button>
           <button
@@ -241,7 +241,7 @@ export default function TrainPage() {
           </div>
         </div>
         <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-          <div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: `${(cardIndex / cards.length) * 100}%` }} />
+          <div className="h-full bg-orange-500 rounded-full transition-all duration-300" style={{ width: `${(cardIndex / cards.length) * 100}%` }} />
         </div>
       </div>
 
@@ -260,7 +260,7 @@ export default function TrainPage() {
             {ttsLoading ? '⟳' : '🔊'}
           </button>
         </div>
-        <p className="text-4xl font-bold text-zinc-900 text-center mt-4 mb-2 break-words">{frontText}</p>
+        <p className="text-2xl sm:text-4xl font-bold text-zinc-900 text-center mt-4 mb-2 break-words">{frontText}</p>
         {currentCard?.notes && <p className="text-sm text-zinc-400 text-center mt-2">{currentCard.notes}</p>}
       </div>
 
@@ -276,12 +276,12 @@ export default function TrainPage() {
                 onChange={(e) => setAnswer(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') checkAnswer(); }}
                 placeholder={`Type the ${cardFront === 'slovak' ? 'German' : 'Slovak'} translation…`}
-                className="flex-1 px-4 py-3 bg-zinc-900 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 text-base focus:outline-none focus:border-blue-500"
+                className="flex-1 px-4 py-3 bg-zinc-900 border border-zinc-700 rounded-xl text-white placeholder-zinc-500 text-base focus:outline-none focus:border-orange-500"
               />
               <button
                 onClick={checkAnswer}
                 disabled={!answer.trim()}
-                className="px-5 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-medium rounded-xl transition-colors"
+                className="px-5 py-3 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white font-medium rounded-xl transition-colors"
               >
                 Check
               </button>

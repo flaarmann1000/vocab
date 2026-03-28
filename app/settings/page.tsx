@@ -58,10 +58,10 @@ export default function SettingsPage() {
                 value={value}
                 checked={settings.trainingOrder === value}
                 onChange={() => update({ trainingOrder: value })}
-                className="mt-0.5 w-4 h-4 accent-blue-500"
+                className="mt-0.5 w-4 h-4 accent-orange-500"
               />
               <div>
-                <span className="text-white font-medium group-hover:text-blue-300 transition-colors">{label}</span>
+                <span className="text-white font-medium group-hover:text-orange-300 transition-colors">{label}</span>
                 <p className="text-xs text-zinc-500 mt-0.5">{desc}</p>
               </div>
             </label>
@@ -84,10 +84,10 @@ export default function SettingsPage() {
                 value={value}
                 checked={settings.cardFront === value}
                 onChange={() => update({ cardFront: value })}
-                className="mt-0.5 w-4 h-4 accent-blue-500"
+                className="mt-0.5 w-4 h-4 accent-orange-500"
               />
               <div>
-                <span className="text-white font-medium group-hover:text-blue-300 transition-colors">{label}</span>
+                <span className="text-white font-medium group-hover:text-orange-300 transition-colors">{label}</span>
                 <p className="text-xs text-zinc-500 mt-0.5">{desc}</p>
               </div>
             </label>
@@ -109,9 +109,9 @@ export default function SettingsPage() {
                   type="checkbox"
                   checked={settings.activeCollectionIds.includes(col.id)}
                   onChange={() => toggleCollection(col.id)}
-                  className="w-4 h-4 accent-blue-500"
+                  className="w-4 h-4 accent-orange-500"
                 />
-                <span className="flex-1 text-white group-hover:text-blue-300 transition-colors">{col.name}</span>
+                <span className="flex-1 text-white group-hover:text-orange-300 transition-colors">{col.name}</span>
                 <span className="text-sm text-zinc-500">{col.items.length} words</span>
               </label>
             ))}

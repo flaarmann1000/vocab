@@ -73,7 +73,7 @@ export default function DiacriticKeyboard({ targetRef, onInsert }: DiacriticKeyb
               onClick={() => setUpper((u) => !u)}
               className={`text-xs px-2 py-0.5 rounded border transition-colors ${
                 upper
-                  ? 'bg-blue-600 border-blue-500 text-white'
+                  ? 'bg-orange-600 border-orange-500 text-white'
                   : 'bg-zinc-700 border-zinc-600 text-zinc-300 hover:bg-zinc-600'
               }`}
             >
@@ -86,7 +86,7 @@ export default function DiacriticKeyboard({ targetRef, onInsert }: DiacriticKeyb
                 key={char}
                 type="button"
                 onClick={() => insertChar(char)}
-                className="w-8 h-8 text-sm font-medium rounded bg-zinc-700 hover:bg-blue-600 text-zinc-100 border border-zinc-600 hover:border-blue-500 transition-colors"
+                className="w-8 h-8 text-sm font-medium rounded bg-zinc-700 hover:bg-orange-600 text-zinc-100 border border-zinc-600 hover:border-orange-500 transition-colors"
               >
                 {char}
               </button>

@@ -63,7 +63,7 @@ export default function CollectionsPage() {
         <h1 className="text-2xl font-semibold text-white">Collections</h1>
         <button
           onClick={() => setShowNewForm(true)}
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+          className="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium rounded-lg transition-colors"
         >
           + New Collection
         </button>
@@ -72,7 +72,7 @@ export default function CollectionsPage() {
       {showNewForm && (
         <div className="mb-6 bg-zinc-900 border border-zinc-700 rounded-xl p-4">
           <h2 className="text-sm font-medium text-zinc-300 mb-3">New Collection</h2>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               autoFocus
               type="text"
@@ -83,17 +83,19 @@ export default function CollectionsPage() {
                 if (e.key === 'Escape') { setShowNewForm(false); setNewName(''); }
               }}
               placeholder="Collection name…"
-              className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-blue-500"
+              className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-orange-500"
             />
-            <button onClick={handleCreate} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
-              Create
-            </button>
-            <button
-              onClick={() => { setShowNewForm(false); setNewName(''); }}
-              className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-sm font-medium rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
+            <div className="flex gap-2">
+              <button onClick={handleCreate} className="flex-1 sm:flex-none px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-medium rounded-lg transition-colors">
+                Create
+              </button>
+              <button
+                onClick={() => { setShowNewForm(false); setNewName(''); }}
+                className="flex-1 sm:flex-none px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-sm font-medium rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -109,9 +111,9 @@ export default function CollectionsPage() {
           {collections.map((collection) => (
             <div
               key={collection.id}
-              className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between hover:border-zinc-700 transition-colors"
+              className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 hover:border-zinc-700 transition-colors"
             >
-              <div className="flex-1 min-w-0 mr-4">
+              <div className="flex-1 min-w-0">
                 {renamingId === collection.id ? (
                   <input
                     ref={renameRef}
@@ -123,16 +125,16 @@ export default function CollectionsPage() {
                       if (e.key === 'Enter') commitRename(collection.id);
                       if (e.key === 'Escape') setRenamingId(null);
                     }}
-                    className="font-medium text-white bg-zinc-800 border border-blue-500 rounded px-2 py-0.5 w-full focus:outline-none"
+                    className="font-medium text-white bg-zinc-800 border border-orange-500 rounded px-2 py-0.5 w-full focus:outline-none"
                   />
                 ) : (
                   <button
                     onClick={() => startRename(collection)}
-                    className="font-medium text-white hover:text-blue-300 transition-colors text-left group flex items-center gap-1.5"
+                    className="font-medium text-white hover:text-orange-300 transition-colors text-left group flex items-center gap-1.5"
                     title="Click to rename"
                   >
                     {collection.name}
-                    <span className="text-zinc-600 group-hover:text-blue-400 text-xs opacity-0 group-hover:opacity-100 transition-opacity">✎</span>
+                    <span className="text-zinc-600 group-hover:text-orange-400 text-xs opacity-0 group-hover:opacity-100 transition-opacity">✎</span>
                   </button>
                 )}
                 <p className="text-sm text-zinc-500 mt-0.5">

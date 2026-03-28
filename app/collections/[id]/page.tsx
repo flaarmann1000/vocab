@@ -188,11 +188,11 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
   return (
     <div className="max-w-4xl mx-auto w-full px-4 py-8">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => { window.location.href = '/collections'; }} className="text-zinc-400 hover:text-white transition-colors text-sm">
-          ← Collections
+      <div className="flex items-center gap-2 mb-6 min-w-0">
+        <button onClick={() => { window.location.href = '/collections'; }} className="shrink-0 text-zinc-400 hover:text-white transition-colors text-sm">
+          ←
         </button>
-        <span className="text-zinc-600">/</span>
+        <span className="text-zinc-600 shrink-0">/</span>
         {renamingTitle ? (
           <input
             ref={titleRef}
@@ -204,19 +204,19 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
               if (e.key === 'Enter') commitTitleRename();
               if (e.key === 'Escape') setRenamingTitle(false);
             }}
-            className="text-2xl font-semibold text-white bg-zinc-800 border border-blue-500 rounded px-2 py-0.5 focus:outline-none"
+            className="flex-1 min-w-0 text-xl sm:text-2xl font-semibold text-white bg-zinc-800 border border-orange-500 rounded px-2 py-0.5 focus:outline-none"
           />
         ) : (
           <button
             onClick={() => { setTitleValue(collection.name); setRenamingTitle(true); }}
-            className="text-2xl font-semibold text-white hover:text-blue-300 transition-colors group flex items-center gap-2"
+            className="flex-1 min-w-0 text-xl sm:text-2xl font-semibold text-white hover:text-orange-300 transition-colors group flex items-center gap-2 truncate text-left"
             title="Click to rename"
           >
-            {collection.name}
-            <span className="text-zinc-600 group-hover:text-blue-400 text-base opacity-0 group-hover:opacity-100 transition-opacity">✎</span>
+            <span className="truncate">{collection.name}</span>
+            <span className="shrink-0 text-zinc-600 group-hover:text-orange-400 text-base opacity-0 group-hover:opacity-100 transition-opacity">✎</span>
           </button>
         )}
-        <span className="text-sm text-zinc-500 ml-auto">
+        <span className="shrink-0 text-sm text-zinc-500 ml-1">
           {collection.items.length} {collection.items.length === 1 ? 'word' : 'words'}
         </span>
       </div>
@@ -240,13 +240,14 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
         <div>
           {collection.items.length > 0 ? (
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden mb-6">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-800">
-                    <th className="text-left px-4 py-3 text-zinc-400 font-medium w-[30%]">Slovak</th>
-                    <th className="text-left px-4 py-3 text-zinc-400 font-medium w-[30%]">German</th>
-                    <th className="text-left px-4 py-3 text-zinc-400 font-medium">Notes</th>
-                    <th className="px-4 py-3 w-20"></th>
+                    <th className="text-left px-4 py-3 text-zinc-400 font-medium w-[38%]">Slovak</th>
+                    <th className="text-left px-4 py-3 text-zinc-400 font-medium w-[38%]">German</th>
+                    <th className="hidden sm:table-cell text-left px-4 py-3 text-zinc-400 font-medium">Notes</th>
+                    <th className="px-4 py-3 w-16"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -261,7 +262,7 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
                               value={editSlovak}
                               onChange={(e) => setEditSlovak(e.target.value)}
                               onKeyDown={(e) => { if (e.key === 'Enter') commitEditRow(); if (e.key === 'Escape') cancelEditRow(); }}
-                              className="w-full px-2 py-1 bg-zinc-800 border border-blue-500 rounded text-white text-sm focus:outline-none"
+                              className="w-full px-2 py-1 bg-zinc-800 border border-orange-500 rounded text-white text-sm focus:outline-none"
                             />
                           </td>
                           <td className="px-2 py-2">
@@ -270,16 +271,16 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
                               value={editGerman}
                               onChange={(e) => setEditGerman(e.target.value)}
                               onKeyDown={(e) => { if (e.key === 'Enter') commitEditRow(); if (e.key === 'Escape') cancelEditRow(); }}
-                              className="w-full px-2 py-1 bg-zinc-800 border border-zinc-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+                              className="w-full px-2 py-1 bg-zinc-800 border border-zinc-600 rounded text-white text-sm focus:outline-none focus:border-orange-500"
                             />
                           </td>
-                          <td className="px-2 py-2">
+                          <td className="hidden sm:table-cell px-2 py-2">
                             <input
                               type="text"
                               value={editNotes}
                               onChange={(e) => setEditNotes(e.target.value)}
                               onKeyDown={(e) => { if (e.key === 'Enter') commitEditRow(); if (e.key === 'Escape') cancelEditRow(); }}
-                              className="w-full px-2 py-1 bg-zinc-800 border border-zinc-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+                              className="w-full px-2 py-1 bg-zinc-800 border border-zinc-600 rounded text-white text-sm focus:outline-none focus:border-orange-500"
                             />
                           </td>
                           <td className="px-2 py-2 text-right whitespace-nowrap">
@@ -291,9 +292,9 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
                         <>
                           <td className="px-4 py-3 text-white font-medium">{item.slovak}</td>
                           <td className="px-4 py-3 text-zinc-300">{item.german}</td>
-                          <td className="px-4 py-3 text-zinc-500 text-xs">{item.notes ?? ''}</td>
+                          <td className="hidden sm:table-cell px-4 py-3 text-zinc-500 text-xs">{item.notes ?? ''}</td>
                           <td className="px-4 py-3 text-right whitespace-nowrap">
-                            <button onClick={() => startEditRow(item)} className="text-zinc-500 hover:text-blue-400 transition-colors text-sm mr-2" title="Edit">✎</button>
+                            <button onClick={() => startEditRow(item)} className="text-zinc-500 hover:text-orange-400 transition-colors text-sm mr-2" title="Edit">✎</button>
                             <button onClick={() => handleDeleteItem(item.id)} className="text-zinc-600 hover:text-red-400 transition-colors text-base leading-none" title="Delete">✕</button>
                           </td>
                         </>
@@ -302,6 +303,7 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           ) : (
             <div className="text-center py-10 text-zinc-600 bg-zinc-900 border border-zinc-800 rounded-xl mb-6">
@@ -323,7 +325,7 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
                     onChange={(e) => setSlovakInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleAddWord(); }}
                     placeholder="slovenský…"
-                    className="flex-1 min-w-0 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-blue-500"
+                    className="flex-1 min-w-0 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-orange-500"
                   />
                   <DiacriticKeyboard targetRef={slovakRef} />
                   <button
@@ -347,7 +349,7 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
                     onChange={(e) => setGermanInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') handleAddWord(); }}
                     placeholder="Deutsch…"
-                    className="flex-1 min-w-0 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-blue-500"
+                    className="flex-1 min-w-0 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-orange-500"
                   />
                   <button
                     type="button"
@@ -369,13 +371,13 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
                 onChange={(e) => setNotesInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddWord(); }}
                 placeholder="e.g. grammar note, example sentence…"
-                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-blue-500"
+                className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-600 text-sm focus:outline-none focus:border-orange-500"
               />
             </div>
             <button
               onClick={handleAddWord}
               disabled={!slovakInput.trim() || !germanInput.trim()}
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+              className="px-5 py-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
             >
               Add Word
             </button>
@@ -395,7 +397,7 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
               if (file && file.type.startsWith('image/')) handleImageChange(file);
             }}
             className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors mb-5 ${
-              dragOver ? 'border-blue-500 bg-blue-900/10' : 'border-zinc-700 hover:border-zinc-500'
+              dragOver ? 'border-orange-500 bg-orange-900/20' : 'border-zinc-700 hover:border-zinc-500'
             }`}
           >
             {imagePreview ? (
@@ -421,7 +423,7 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
           </div>
 
           {imageFile && (
-            <button onClick={handleExtract} disabled={extracting} className="px-5 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white text-sm font-medium rounded-lg transition-colors mb-6 flex items-center gap-2">
+            <button onClick={handleExtract} disabled={extracting} className="px-5 py-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-60 text-white text-sm font-medium rounded-lg transition-colors mb-6 flex items-center gap-2">
               {extracting ? <><span className="animate-spin inline-block">⟳</span> Extracting…</> : 'Extract Vocabulary'}
             </button>
           )}
