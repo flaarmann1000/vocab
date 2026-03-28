@@ -15,17 +15,21 @@ const DEFAULT_SETTINGS: AppSettings = {
  * window of eventual consistency after a write.
  */
 async function blobRead<T>(pathname: string, fallback: T, maxAttempts = 1): Promise<T> {
-  const { list, getDownloadUrl } = await import('@vercel/blob');
+  const { list } = await import('@vercel/blob');
+  const token = process.env.BLOB_READ_WRITE_TOKEN ?? '';
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const { blobs } = await list({ prefix: pathname });
       const blob = blobs.find((b) => b.pathname === pathname);
       if (blob) {
-        const signedUrl = getDownloadUrl(blob.url);
-        const res = await fetch(signedUrl, { cache: 'no-store' });
+        // Private blobs require Authorization header — getDownloadUrl() does NOT add auth
+        const res = await fetch(blob.url, {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${token}` },
+        });
         if (res.ok) return (await res.json()) as T;
       }
-    } catch { /* ignore, try again or return fallback */ }
+    } catch { /* ignore, retry or return fallback */ }
     if (attempt < maxAttempts - 1) await new Promise((r) => setTimeout(r, 500));
   }
   return fallback;

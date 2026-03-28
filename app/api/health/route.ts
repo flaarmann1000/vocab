@@ -28,12 +28,15 @@ export async function GET() {
 
   // Test read via list (same as db.ts blobRead)
   try {
-    const { list, getDownloadUrl } = await import('@vercel/blob');
+    const { list } = await import('@vercel/blob');
     const { blobs } = await list({ prefix: 'vocab/.health-check' });
     const blob = blobs.find((b) => b.pathname === 'vocab/.health-check');
     if (!blob) throw new Error('Blob not found in list');
-    const signedUrl = getDownloadUrl(blob.url);
-    const res = await fetch(signedUrl, { cache: 'no-store' });
+    const res = await fetch(blob.url, {
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` },
+    });
+    if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
     const text = await res.text();
     if (text !== 'ok') throw new Error('Unexpected content: ' + text);
   } catch (e) {
