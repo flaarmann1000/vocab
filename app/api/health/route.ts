@@ -25,7 +25,7 @@ export async function GET() {
   try {
     const { put } = await import('@vercel/blob');
     await put('vocab/.health-check', 'ok', {
-      access: 'public',
+      access: 'private',
       contentType: 'text/plain',
       addRandomSuffix: false,
     });

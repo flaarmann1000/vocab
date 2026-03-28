@@ -10,10 +10,11 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 async function blobRead<T>(pathname: string, fallback: T): Promise<T> {
   try {
-    const { list } = await import('@vercel/blob');
+    const { list, getDownloadUrl } = await import('@vercel/blob');
     const { blobs } = await list({ prefix: pathname });
     if (blobs.length === 0) return fallback;
-    const res = await fetch(blobs[0].url, { cache: 'no-store' });
+    const signedUrl = getDownloadUrl(blobs[0].url);
+    const res = await fetch(signedUrl, { cache: 'no-store' });
     return (await res.json()) as T;
   } catch {
     return fallback;
@@ -23,7 +24,7 @@ async function blobRead<T>(pathname: string, fallback: T): Promise<T> {
 async function blobWrite(pathname: string, data: unknown): Promise<void> {
   const { put } = await import('@vercel/blob');
   await put(pathname, JSON.stringify(data), {
-    access: 'public',
+    access: 'private',
     contentType: 'application/json',
     addRandomSuffix: false,
   });
