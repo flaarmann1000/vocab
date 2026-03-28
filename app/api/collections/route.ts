@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCollectionsDB, saveCollectionsDB } from '@/lib/db';
+
+export const dynamic = 'force-dynamic';
 import type { VocabCollection } from '@/lib/types';
 
 export async function GET() {

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSettingsDB, saveSettingsDB } from '@/lib/db';
+
+export const dynamic = 'force-dynamic';
 import type { AppSettings } from '@/lib/types';
 
 export async function GET() {
