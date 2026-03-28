@@ -7,18 +7,10 @@ export async function GET() {
   if (!hasBlob) {
     return NextResponse.json(
       onVercel
-        ? { storage: 'none', status: 'error', error: 'BLOB_READ_WRITE_TOKEN not set. Add a Blob store to your Vercel project.' }
+        ? { storage: 'none', status: 'error', error: 'BLOB_READ_WRITE_TOKEN not set.' }
         : { storage: 'local-file', status: 'ok' },
       { status: onVercel ? 503 : 200 }
     );
-  }
-
-  // Test read
-  try {
-    const { list } = await import('@vercel/blob');
-    await list({ prefix: 'vocab/' });
-  } catch (e) {
-    return NextResponse.json({ storage: 'vercel-blob', status: 'error', op: 'list', error: String(e) }, { status: 500 });
   }
 
   // Test write
@@ -32,6 +24,17 @@ export async function GET() {
     });
   } catch (e) {
     return NextResponse.json({ storage: 'vercel-blob', status: 'error', op: 'put', error: String(e) }, { status: 500 });
+  }
+
+  // Test read via pathname (same approach as db.ts — avoids list() caching issues)
+  try {
+    const { get } = await import('@vercel/blob');
+    const result = await get('vocab/.health-check', { access: 'private' });
+    if (!result || result.statusCode !== 200 || !result.stream) throw new Error('No content');
+    const text = await new Response(result.stream).text();
+    if (text !== 'ok') throw new Error('Unexpected content: ' + text);
+  } catch (e) {
+    return NextResponse.json({ storage: 'vercel-blob', status: 'error', op: 'get', error: String(e) }, { status: 500 });
   }
 
   return NextResponse.json({ storage: 'vercel-blob', status: 'ok' });

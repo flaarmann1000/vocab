@@ -6,17 +6,18 @@ const DEFAULT_SETTINGS: AppSettings = {
   activeCollectionIds: [],
 };
 
-// ── Blob (Vercel production) ──────────────────────────────────────────────────
+// ── Blob helpers ──────────────────────────────────────────────────────────────
 
 async function blobRead<T>(pathname: string, fallback: T): Promise<T> {
   try {
-    const { list, getDownloadUrl } = await import('@vercel/blob');
-    const { blobs } = await list({ prefix: pathname });
-    if (blobs.length === 0) return fallback;
-    const signedUrl = getDownloadUrl(blobs[0].url);
-    const res = await fetch(signedUrl, { cache: 'no-store' });
-    return (await res.json()) as T;
+    const { get } = await import('@vercel/blob');
+    // get() accepts a pathname directly and constructs the URL from the token internally.
+    // This avoids list() which has caching/consistency issues after writes.
+    const result = await get(pathname, { access: 'private' });
+    if (!result || result.statusCode !== 200 || !result.stream) return fallback;
+    return await new Response(result.stream).json() as T;
   } catch {
+    // BlobNotFoundError on first use, or any other read error → return fallback
     return fallback;
   }
 }
