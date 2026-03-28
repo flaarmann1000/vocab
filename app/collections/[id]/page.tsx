@@ -191,7 +191,7 @@ export default function CollectionDetailPage() {
     <div className="max-w-4xl mx-auto w-full px-4 py-8">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.push('/collections')} className="text-zinc-400 hover:text-white transition-colors text-sm">
+        <button onClick={() => { router.refresh(); router.push('/collections'); }} className="text-zinc-400 hover:text-white transition-colors text-sm">
           ← Collections
         </button>
         <span className="text-zinc-600">/</span>
