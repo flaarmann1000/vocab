@@ -1,43 +1,59 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCollections, saveCollections } from '@/lib/storage';
-import { VocabCollection } from '@/lib/types';
+import { fetchCollections, createCollection, updateCollection, deleteCollectionAPI } from '@/lib/api';
+import type { VocabCollection } from '@/lib/types';
 
 export default function CollectionsPage() {
   const [collections, setCollections] = useState<VocabCollection[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showNewForm, setShowNewForm] = useState(false);
   const [newName, setNewName] = useState('');
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const renameRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   useEffect(() => {
-    setCollections(getCollections());
+    fetchCollections()
+      .then(setCollections)
+      .finally(() => setLoading(false));
   }, []);
 
-  function handleCreate() {
+  useEffect(() => {
+    if (renamingId) renameRef.current?.focus();
+  }, [renamingId]);
+
+  async function handleCreate() {
     const name = newName.trim();
     if (!name) return;
-    const newCollection: VocabCollection = {
-      id: crypto.randomUUID(),
-      name,
-      items: [],
-      createdAt: Date.now(),
-    };
-    const updated = [...collections, newCollection];
-    saveCollections(updated);
-    setCollections(updated);
+    const col = await createCollection(name);
     setNewName('');
     setShowNewForm(false);
-    router.push(`/collections/${newCollection.id}`);
+    router.push(`/collections/${col.id}`);
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (!confirm('Delete this collection? This cannot be undone.')) return;
-    const updated = collections.filter((c) => c.id !== id);
-    saveCollections(updated);
-    setCollections(updated);
+    await deleteCollectionAPI(id);
+    setCollections((prev) => prev.filter((c) => c.id !== id));
   }
+
+  function startRename(col: VocabCollection) {
+    setRenamingId(col.id);
+    setRenameValue(col.name);
+  }
+
+  async function commitRename(id: string) {
+    const name = renameValue.trim();
+    if (!name) { setRenamingId(null); return; }
+    const updated = await updateCollection(id, { name });
+    setCollections((prev) => prev.map((c) => (c.id === id ? updated : c)));
+    setRenamingId(null);
+  }
+
+  if (loading) return <div className="flex-1 flex items-center justify-center text-zinc-500">Loading…</div>;
 
   return (
     <div className="max-w-3xl mx-auto w-full px-4 py-8">
@@ -62,15 +78,12 @@ export default function CollectionsPage() {
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleCreate();
-                if (e.key === 'Escape') setShowNewForm(false);
+                if (e.key === 'Escape') { setShowNewForm(false); setNewName(''); }
               }}
               placeholder="Collection name…"
               className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-600 rounded-lg text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-blue-500"
             />
-            <button
-              onClick={handleCreate}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
-            >
+            <button onClick={handleCreate} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
               Create
             </button>
             <button
@@ -96,8 +109,30 @@ export default function CollectionsPage() {
               key={collection.id}
               className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center justify-between hover:border-zinc-700 transition-colors"
             >
-              <div>
-                <h3 className="font-medium text-white">{collection.name}</h3>
+              <div className="flex-1 min-w-0 mr-4">
+                {renamingId === collection.id ? (
+                  <input
+                    ref={renameRef}
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onBlur={() => commitRename(collection.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitRename(collection.id);
+                      if (e.key === 'Escape') setRenamingId(null);
+                    }}
+                    className="font-medium text-white bg-zinc-800 border border-blue-500 rounded px-2 py-0.5 w-full focus:outline-none"
+                  />
+                ) : (
+                  <button
+                    onClick={() => startRename(collection)}
+                    className="font-medium text-white hover:text-blue-300 transition-colors text-left group flex items-center gap-1.5"
+                    title="Click to rename"
+                  >
+                    {collection.name}
+                    <span className="text-zinc-600 group-hover:text-blue-400 text-xs opacity-0 group-hover:opacity-100 transition-opacity">✎</span>
+                  </button>
+                )}
                 <p className="text-sm text-zinc-500 mt-0.5">
                   {collection.items.length} {collection.items.length === 1 ? 'word' : 'words'}
                 </p>

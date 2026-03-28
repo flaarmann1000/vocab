@@ -8,6 +8,7 @@ const inter = Inter({ subsets: ['latin', 'latin-ext'] });
 export const metadata: Metadata = {
   title: 'Vocab Trainer',
   description: 'Slovak–German vocabulary flashcard trainer',
+  icons: { icon: '/favicon.svg' },
 };
 
 export default function RootLayout({

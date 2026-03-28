@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- back card -->
+  <rect x="6" y="5" width="22" height="16" rx="3" fill="#1d4ed8" opacity="0.5"/>
+  <!-- front card -->
+  <rect x="4" y="8" width="22" height="16" rx="3" fill="#2563eb"/>
+  <!-- text line SK -->
+  <text x="15" y="18" font-size="8" font-weight="700" font-family="system-ui,sans-serif" fill="white" text-anchor="middle">SK</text>
+  <!-- small DE tag -->
+  <rect x="19" y="20" width="9" height="6" rx="1.5" fill="#1e3a8a"/>
+  <text x="23.5" y="25" font-size="5" font-weight="600" font-family="system-ui,sans-serif" fill="#93c5fd" text-anchor="middle">DE</text>
+</svg>
