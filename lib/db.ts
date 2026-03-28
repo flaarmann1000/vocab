@@ -27,6 +27,7 @@ async function blobWrite(pathname: string, data: unknown): Promise<void> {
     access: 'private',
     contentType: 'application/json',
     addRandomSuffix: false,
+    allowOverwrite: true,
   });
 }
 

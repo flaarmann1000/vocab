@@ -28,6 +28,7 @@ export async function GET() {
       access: 'private',
       contentType: 'text/plain',
       addRandomSuffix: false,
+      allowOverwrite: true,
     });
   } catch (e) {
     return NextResponse.json({ storage: 'vercel-blob', status: 'error', op: 'put', error: String(e) }, { status: 500 });
