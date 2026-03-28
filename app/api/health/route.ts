@@ -26,15 +26,18 @@ export async function GET() {
     return NextResponse.json({ storage: 'vercel-blob', status: 'error', op: 'put', error: String(e) }, { status: 500 });
   }
 
-  // Test read via pathname (same approach as db.ts — avoids list() caching issues)
+  // Test read via list (same as db.ts blobRead)
   try {
-    const { get } = await import('@vercel/blob');
-    const result = await get('vocab/.health-check', { access: 'private' });
-    if (!result || result.statusCode !== 200 || !result.stream) throw new Error('No content');
-    const text = await new Response(result.stream).text();
+    const { list, getDownloadUrl } = await import('@vercel/blob');
+    const { blobs } = await list({ prefix: 'vocab/.health-check' });
+    const blob = blobs.find((b) => b.pathname === 'vocab/.health-check');
+    if (!blob) throw new Error('Blob not found in list');
+    const signedUrl = getDownloadUrl(blob.url);
+    const res = await fetch(signedUrl, { cache: 'no-store' });
+    const text = await res.text();
     if (text !== 'ok') throw new Error('Unexpected content: ' + text);
   } catch (e) {
-    return NextResponse.json({ storage: 'vercel-blob', status: 'error', op: 'get', error: String(e) }, { status: 500 });
+    return NextResponse.json({ storage: 'vercel-blob', status: 'error', op: 'list+read', error: String(e) }, { status: 500 });
   }
 
   return NextResponse.json({ storage: 'vercel-blob', status: 'ok' });

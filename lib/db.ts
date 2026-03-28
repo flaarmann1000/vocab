@@ -8,18 +8,27 @@ const DEFAULT_SETTINGS: AppSettings = {
 
 // ── Blob helpers ──────────────────────────────────────────────────────────────
 
-async function blobRead<T>(pathname: string, fallback: T): Promise<T> {
-  try {
-    const { get } = await import('@vercel/blob');
-    // get() accepts a pathname directly and constructs the URL from the token internally.
-    // This avoids list() which has caching/consistency issues after writes.
-    const result = await get(pathname, { access: 'private' });
-    if (!result || result.statusCode !== 200 || !result.stream) return fallback;
-    return await new Response(result.stream).json() as T;
-  } catch {
-    // BlobNotFoundError on first use, or any other read error → return fallback
-    return fallback;
+/**
+ * Read a private blob. Uses list() to discover the real URL (put() stores blobs
+ * at a URL that only list() reliably returns; get(pathname) constructs a different
+ * subdomain and fails). Retries up to `maxAttempts` times to handle the brief
+ * window of eventual consistency after a write.
+ */
+async function blobRead<T>(pathname: string, fallback: T, maxAttempts = 1): Promise<T> {
+  const { list, getDownloadUrl } = await import('@vercel/blob');
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const { blobs } = await list({ prefix: pathname });
+      const blob = blobs.find((b) => b.pathname === pathname);
+      if (blob) {
+        const signedUrl = getDownloadUrl(blob.url);
+        const res = await fetch(signedUrl, { cache: 'no-store' });
+        if (res.ok) return (await res.json()) as T;
+      }
+    } catch { /* ignore, try again or return fallback */ }
+    if (attempt < maxAttempts - 1) await new Promise((r) => setTimeout(r, 500));
   }
+  return fallback;
 }
 
 async function blobWrite(pathname: string, data: unknown): Promise<void> {
@@ -65,8 +74,15 @@ async function localWrite(filename: string, data: unknown): Promise<void> {
 
 const useBlob = () => !!process.env.BLOB_READ_WRITE_TOKEN;
 
+// Normal reads (1 attempt — data should be stable)
 export async function getCollectionsDB(): Promise<VocabCollection[]> {
   if (useBlob()) return blobRead<VocabCollection[]>('vocab/collections.json', []);
+  return localRead<VocabCollection[]>('collections.json', []);
+}
+
+// Reads that happen immediately after a write use retries to survive list() lag
+export async function getCollectionsDBWithRetry(): Promise<VocabCollection[]> {
+  if (useBlob()) return blobRead<VocabCollection[]>('vocab/collections.json', [], 5);
   return localRead<VocabCollection[]>('collections.json', []);
 }
 

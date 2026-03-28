@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getCollectionsDB, saveCollectionsDB } from '@/lib/db';
+import { getCollectionsDB, getCollectionsDBWithRetry, saveCollectionsDB } from '@/lib/db';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,7 +12,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await req.json();
-  const collections = await getCollectionsDB();
+  const collections = await getCollectionsDBWithRetry();
   const idx = collections.findIndex((c) => c.id === id);
   if (idx === -1) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   const updated = { ...collections[idx], ...body };
