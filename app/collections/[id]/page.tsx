@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { updateCollection } from '@/lib/api';
+import { getTtsUrl, playAudio } from '@/lib/tts';
 import type { VocabCollection, VocabItem } from '@/lib/types';
 import DiacriticKeyboard from '@/components/DiacriticKeyboard';
 
@@ -28,6 +29,10 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
+
+  // Audio state
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [ttsLoading, setTtsLoading] = useState<string | null>(null); // text currently loading
 
   // Rename title state
   const [renamingTitle, setRenamingTitle] = useState(false);
@@ -223,6 +228,16 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
     setExtractedItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
   }, []);
 
+  async function handlePlayAudio(text: string) {
+    if (ttsLoading) return;
+    setTtsLoading(text);
+    try {
+      const url = await getTtsUrl(text);
+      playAudio(url, audioRef);
+    } catch { /* ignore */ }
+    finally { setTtsLoading(null); }
+  }
+
   const filteredItems = useMemo(() => {
     if (!collection) return [];
     if (!searchQuery.trim()) return collection.items;
@@ -376,8 +391,32 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
                         </>
                       ) : (
                         <>
-                          <td className="px-4 py-3 text-white font-medium">{item.slovak}</td>
-                          <td className="px-4 py-3 text-zinc-300">{item.german}</td>
+                          <td className="px-4 py-3 text-white font-medium">
+                            <span className="flex items-center gap-1.5">
+                              {item.slovak}
+                              <button
+                                onClick={() => handlePlayAudio(item.slovak)}
+                                disabled={ttsLoading !== null}
+                                className="text-zinc-600 hover:text-orange-400 transition-colors disabled:opacity-40 text-sm shrink-0"
+                                title="Play Slovak"
+                              >
+                                {ttsLoading === item.slovak ? <span className="animate-spin inline-block">⟳</span> : '🔊'}
+                              </button>
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-zinc-300">
+                            <span className="flex items-center gap-1.5">
+                              {item.german}
+                              <button
+                                onClick={() => handlePlayAudio(item.german)}
+                                disabled={ttsLoading !== null}
+                                className="text-zinc-600 hover:text-orange-400 transition-colors disabled:opacity-40 text-sm shrink-0"
+                                title="Play German"
+                              >
+                                {ttsLoading === item.german ? <span className="animate-spin inline-block">⟳</span> : '🔊'}
+                              </button>
+                            </span>
+                          </td>
                           <td className="hidden sm:table-cell px-4 py-3 text-zinc-500 text-xs">{item.notes ?? ''}</td>
                           <td className="px-4 py-3 text-right whitespace-nowrap">
                             <button onClick={() => startEditRow(item)} className="text-zinc-500 hover:text-orange-400 transition-colors text-sm mr-2" title="Edit">✎</button>

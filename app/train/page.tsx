@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchCollections, fetchSettings, saveSettingsAPI, updateCollection } from '@/lib/api';
+import { getTtsUrl, playAudio } from '@/lib/tts';
 import type { VocabCollection, VocabItem, AppSettings } from '@/lib/types';
 import { sm2 } from '@/lib/sm2';
 
@@ -118,18 +119,8 @@ export default function TrainPage() {
     if (!currentCard || ttsLoading) return;
     setTtsLoading(true);
     try {
-      const res = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: currentCard.slovak }),
-      });
-      if (!res.ok) throw new Error('TTS failed');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      if (audioRef.current) { audioRef.current.pause(); URL.revokeObjectURL(audioRef.current.src); }
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.play();
+      const url = await getTtsUrl(currentCard.slovak);
+      playAudio(url, audioRef);
     } catch { /* ignore */ }
     finally { setTtsLoading(false); }
   }, [currentCard, ttsLoading]);
