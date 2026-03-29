@@ -16,7 +16,6 @@ const DEFAULT_SETTINGS: AppSettings = {
  */
 async function blobRead<T>(pathname: string, fallback: T, maxAttempts = 1): Promise<T> {
   const { list } = await import('@vercel/blob');
-  const token = process.env.BLOB_READ_WRITE_TOKEN ?? '';
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const { blobs } = await list({ prefix: pathname });
@@ -26,7 +25,6 @@ async function blobRead<T>(pathname: string, fallback: T, maxAttempts = 1): Prom
         // Add timestamp to bust Vercel's CDN cache for this private blob
         const res = await fetch(`${blob.url}?t=${Date.now()}`, {
           cache: 'no-store',
-          headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) return (await res.json()) as T;
       }
@@ -39,7 +37,7 @@ async function blobRead<T>(pathname: string, fallback: T, maxAttempts = 1): Prom
 async function blobWrite(pathname: string, data: unknown): Promise<void> {
   const { put } = await import('@vercel/blob');
   await put(pathname, JSON.stringify(data), {
-    access: 'private',
+    access: 'public',
     contentType: 'application/json',
     addRandomSuffix: false,
     allowOverwrite: true,
