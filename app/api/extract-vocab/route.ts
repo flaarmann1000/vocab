@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
         {
           role: 'system',
           content:
-            "Extract all vocabulary word pairs from this image. Return a JSON array of objects with 'slovak' and 'german' keys. Only return valid JSON, no explanation.",
+            "Extract all vocabulary word pairs from this image. If the word is only written in slovak, fill in the german translation. Make sure to extract all slovak words on the picture. Return a JSON array of objects with 'slovak' and 'german' keys. Only return valid JSON, no explanation.",
         },
         {
           role: 'user',
