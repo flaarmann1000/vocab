@@ -161,24 +161,30 @@ export default function TrainPage() {
     const deck = cardsRef.current;
     const idx  = cardIndexRef.current;
     if (idx + 1 >= deck.length) {
-      const sIds = savedIdsRef.current;
-      if (roundRef.current === 'main' && sIds.size > 0) {
-        // Start saved round: clear those cards' records so they can be re-answered
-        const savedDeck = deck.filter((c) => sIds.has(c.id));
-        setCardRecords((prev) => {
-          const next = { ...prev };
-          for (const c of savedDeck) delete next[c.id];
-          return next;
-        });
-        setCards(savedDeck);
-        setCardIndex(0);
-        setAnswer('');
-        setAnswerStatus('unanswered');
-        setSavedIds(new Set());
-        setRound('saved');
-      } else {
-        setStatus('complete');
+      if (roundRef.current === 'main') {
+        const records = cardRecordsRef.current;
+        const sIds    = savedIdsRef.current;
+        const revisitIds = new Set<string>([
+          ...sIds,
+          ...deck.filter((c) => { const r = records[c.id]; return r?.status === 'wrong' || r?.status === 'revealed'; }).map((c) => c.id),
+        ]);
+        if (revisitIds.size > 0) {
+          const revisitDeck = deck.filter((c) => revisitIds.has(c.id));
+          setCardRecords((prev) => {
+            const next = { ...prev };
+            for (const c of revisitDeck) delete next[c.id];
+            return next;
+          });
+          setCards(revisitDeck);
+          setCardIndex(0);
+          setAnswer('');
+          setAnswerStatus('unanswered');
+          setSavedIds(new Set());
+          setRound('saved');
+          return;
+        }
       }
+      setStatus('complete');
     } else {
       navigateTo(idx + 1);
     }
@@ -190,14 +196,18 @@ export default function TrainPage() {
   };
   goBackRef.current = goBack;
 
+  const toggleSavedRef = useRef<() => void>(() => {});
+
   function toggleSaved() {
-    if (!currentCard) return;
+    const card = cardsRef.current[cardIndexRef.current];
+    if (!card) return;
     setSavedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(currentCard.id)) next.delete(currentCard.id); else next.add(currentCard.id);
+      if (next.has(card.id)) next.delete(card.id); else next.add(card.id);
       return next;
     });
   }
+  toggleSavedRef.current = toggleSaved;
 
   const playTts = useCallback(async () => {
     if (!currentCard || ttsLoading) return;
@@ -216,8 +226,8 @@ export default function TrainPage() {
       const inInput = (e.target as HTMLElement)?.tagName?.toLowerCase() === 'input';
 
       if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
-        // Enter in the answer input → check (handled by the input's own onKeyDown)
-        // Enter elsewhere → do nothing (user must click Continue explicitly)
+        // Enter in input → check (handled by input's own onKeyDown); Enter outside → advance
+        if (!inInput && answerStatusRef.current !== 'unanswered') advanceRef.current();
         return;
       }
 
@@ -230,10 +240,12 @@ export default function TrainPage() {
       if (!inInput) {
         if (e.key === 'ArrowLeft')  { e.preventDefault(); goBackRef.current(); }
         if (e.key === 'ArrowRight') { e.preventDefault(); advanceRef.current(); }
-        // Space advances when answered
         if (e.key === ' ' && answerStatusRef.current !== 'unanswered') {
           e.preventDefault();
           advanceRef.current();
+        }
+        if (e.key === 's' && !e.ctrlKey && !e.metaKey && roundRef.current === 'main') {
+          toggleSavedRef.current();
         }
       }
     }
@@ -426,33 +438,51 @@ export default function TrainPage() {
             : answerStatus === 'revealed' ? 'bg-zinc-800/60 border-zinc-700'
             : 'bg-red-900/30 border-red-700/50'
           }`}>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xl">{answerStatus === 'correct' ? '✓' : answerStatus === 'revealed' ? '👁' : '✗'}</span>
-              <span className={`font-semibold ${answerStatus === 'correct' ? 'text-green-300' : answerStatus === 'revealed' ? 'text-zinc-300' : 'text-red-300'}`}>
-                {answerStatus === 'correct' ? 'Correct!' : answerStatus === 'revealed' ? 'Answer' : 'Incorrect'}
-              </span>
-            </div>
-            {answerStatus !== 'correct' && (
-              <div className="mb-3">
-                {answerStatus === 'wrong' && (
-                  <>
-                    <p className="text-xs text-zinc-400 mb-0.5">Your answer:</p>
-                    <p className="text-red-300 font-medium mb-2">{answer}</p>
-                  </>
-                )}
-                <p className="text-xs text-zinc-400 mb-0.5">Correct answer:</p>
-                <p className="text-green-300 font-semibold text-lg">{backText}</p>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{answerStatus === 'correct' ? '✓' : answerStatus === 'revealed' ? '👁' : '✗'}</span>
+                <span className={`font-semibold ${answerStatus === 'correct' ? 'text-green-300' : answerStatus === 'revealed' ? 'text-zinc-300' : 'text-red-300'}`}>
+                  {answerStatus === 'correct' ? 'Correct!' : answerStatus === 'revealed' ? 'Answer' : 'Incorrect'}
+                </span>
               </div>
-            )}
-            <button
-              onClick={advance}
-              className="mt-1 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              {cardIndex + 1 >= cards.length
-                ? (round === 'main' && savedIds.size > 0 ? `Review ${savedIds.size} saved →` : 'Finish')
-                : 'Continue →'}
-            </button>
-            <span className="ml-3 text-zinc-600 text-xs">Space / →</span>
+              {round === 'main' && (
+                <button
+                  onClick={toggleSaved}
+                  className={`text-sm transition-colors flex items-center gap-1 ${isSaved ? 'text-orange-400' : 'text-zinc-500 hover:text-orange-300'}`}
+                  title="Save for later (s)"
+                >
+                  {isSaved ? '★' : '☆'} <span className="text-xs text-zinc-600">s</span>
+                </button>
+              )}
+            </div>
+            <div className="mb-4">
+              {answer.trim() && (
+                <div className="mb-2">
+                  <p className="text-xs text-zinc-500 mb-0.5">You typed:</p>
+                  <p className={`font-medium ${answerStatus === 'correct' ? 'text-green-300' : 'text-red-300'}`}>{answer}</p>
+                </div>
+              )}
+              <p className="text-xs text-zinc-500 mb-0.5">Correct:</p>
+              <p className="text-green-300 font-semibold text-lg">{backText}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={advance}
+                className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                {(() => {
+                  if (cardIndex + 1 < cards.length) return 'Continue →';
+                  if (round !== 'main') return 'Finish';
+                  const records = cardRecords;
+                  const revisitCount = new Set<string>([
+                    ...savedIds,
+                    ...cards.filter((c) => { const r = records[c.id]; return r?.status === 'wrong' || r?.status === 'revealed'; }).map((c) => c.id),
+                  ]).size;
+                  return revisitCount > 0 ? `Review ${revisitCount} words →` : 'Finish';
+                })()}
+              </button>
+              <span className="text-zinc-600 text-xs">Enter / Space / →</span>
+            </div>
           </div>
         )}
       </div>
