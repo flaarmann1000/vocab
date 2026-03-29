@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { updateCollection } from '@/lib/api';
 import type { VocabCollection, VocabItem } from '@/lib/types';
@@ -8,11 +8,26 @@ import DiacriticKeyboard from '@/components/DiacriticKeyboard';
 
 type Tab = 'manual' | 'upload';
 
+function dedupe(items: VocabItem[]): VocabItem[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = `${item.slovak.trim().toLowerCase()}|||${item.german.trim().toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export default function CollectionDetailPage() {
   const { id } = useParams<{ id: string }>();
 const [collection, setCollection] = useState<VocabCollection | null>(null);
   const [tab, setTab] = useState<Tab>('manual');
   const [loading, setLoading] = useState(true);
+
+  // Search state
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchRef = useRef<HTMLInputElement>(null);
 
   // Rename title state
   const [renamingTitle, setRenamingTitle] = useState(false);
@@ -47,8 +62,11 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
     if (cached) {
       sessionStorage.removeItem(`collection_${id}`);
       const data = JSON.parse(cached) as VocabCollection;
-      setCollection(data);
-      setTitleValue(data.name);
+      const deduped = dedupe(data.items);
+      const clean = deduped.length < data.items.length ? { ...data, items: deduped } : data;
+      setCollection(clean);
+      setTitleValue(clean.name);
+      if (deduped.length < data.items.length) updateCollection(clean.id, clean);
       setLoading(false);
       return;
     }
@@ -60,9 +78,12 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
         return load(retries - 1, delay * 1.5);
       }
       if (!r.ok) { window.location.href = '/collections'; return; }
-      const data = await r.json();
-      setCollection(data);
-      setTitleValue(data.name);
+      const data: VocabCollection = await r.json();
+      const deduped = dedupe(data.items);
+      const clean = deduped.length < data.items.length ? { ...data, items: deduped } : data;
+      setCollection(clean);
+      setTitleValue(clean.name);
+      if (deduped.length < data.items.length) updateCollection(clean.id, clean);
     }
 
     load().finally(() => setLoading(false));
@@ -71,6 +92,26 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
   useEffect(() => {
     if (renamingTitle) titleRef.current?.focus();
   }, [renamingTitle]);
+
+  useEffect(() => {
+    if (searchOpen) searchRef.current?.focus();
+  }, [searchOpen]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        setSearchOpen((prev) => !prev);
+        setSearchQuery('');
+      }
+      if (e.key === 'Escape') {
+        setSearchOpen(false);
+        setSearchQuery('');
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   async function persistCollection(updated: VocabCollection) {
     const saved = await updateCollection(updated.id, updated);
@@ -137,7 +178,7 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
       notes: notesInput.trim() || undefined,
       createdAt: Date.now(),
     };
-    await persistCollection({ ...collection, items: [...collection.items, newItem] });
+    await persistCollection({ ...collection, items: dedupe([...collection.items, newItem]) });
     setSlovakInput('');
     setGermanInput('');
     setNotesInput('');
@@ -171,7 +212,7 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
       .filter((i) => i.slovak?.trim() && i.german?.trim())
       .map((i) => ({ id: crypto.randomUUID(), slovak: i.slovak.trim(), german: i.german.trim(), createdAt: Date.now() }));
     if (newItems.length === 0) return;
-    await persistCollection({ ...collection, items: [...collection.items, ...newItems] });
+    await persistCollection({ ...collection, items: dedupe([...collection.items, ...newItems]) });
     setExtractedItems([]);
     setImageFile(null);
     setImagePreview(null);
@@ -181,6 +222,15 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
   const updateExtractedItem = useCallback((index: number, field: 'slovak' | 'german', value: string) => {
     setExtractedItems((prev) => prev.map((item, i) => (i === index ? { ...item, [field]: value } : item)));
   }, []);
+
+  const filteredItems = useMemo(() => {
+    if (!collection) return [];
+    if (!searchQuery.trim()) return collection.items;
+    const q = searchQuery.trim().toLowerCase();
+    return collection.items.filter(
+      (i) => i.slovak.toLowerCase().includes(q) || i.german.toLowerCase().includes(q) || i.notes?.toLowerCase().includes(q)
+    );
+  }, [collection, searchQuery]);
 
   if (loading) return <div className="flex items-center justify-center flex-1 text-zinc-500">Loading…</div>;
   if (!collection) return null;
@@ -219,7 +269,40 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
         <span className="shrink-0 text-sm text-zinc-500 ml-1">
           {collection.items.length} {collection.items.length === 1 ? 'word' : 'words'}
         </span>
+        <button
+          onClick={() => { setSearchOpen((prev) => !prev); setSearchQuery(''); }}
+          className="shrink-0 ml-2 px-2 py-0.5 rounded text-xs text-zinc-500 border border-zinc-700 hover:border-zinc-500 hover:text-zinc-300 transition-colors font-mono"
+          title="Search (Ctrl+K)"
+        >
+          ⌘K
+        </button>
       </div>
+
+      {/* Search bar */}
+      {searchOpen && (
+        <div className="mb-4">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm select-none">⌕</span>
+            <input
+              ref={searchRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search words…"
+              className="w-full pl-8 pr-10 py-2 bg-zinc-900 border border-orange-500 rounded-lg text-white placeholder-zinc-600 text-sm focus:outline-none"
+            />
+            <button
+              onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 text-sm"
+            >
+              ✕
+            </button>
+          </div>
+          {searchQuery && (
+            <p className="text-xs text-zinc-600 mt-1 ml-1">{filteredItems.length} of {collection.items.length} words</p>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-zinc-900 border border-zinc-800 rounded-xl p-1 w-fit">
@@ -251,7 +334,9 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
                   </tr>
                 </thead>
                 <tbody>
-                  {collection.items.map((item, idx) => (
+                  {filteredItems.length === 0 ? (
+                    <tr><td colSpan={4} className="px-4 py-6 text-center text-zinc-600 text-sm">No matches.</td></tr>
+                  ) : filteredItems.map((item, idx) => (
                     <tr key={item.id} className={`border-b border-zinc-800 last:border-0 ${idx % 2 === 0 ? '' : 'bg-zinc-800/30'}`}>
                       {editingId === item.id ? (
                         <>
