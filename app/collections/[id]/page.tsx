@@ -226,9 +226,10 @@ const [collection, setCollection] = useState<VocabCollection | null>(null);
   const filteredItems = useMemo(() => {
     if (!collection) return [];
     if (!searchQuery.trim()) return collection.items;
-    const q = searchQuery.trim().toLowerCase();
+    const norm = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+    const q = norm(searchQuery.trim());
     return collection.items.filter(
-      (i) => i.slovak.toLowerCase().includes(q) || i.german.toLowerCase().includes(q) || i.notes?.toLowerCase().includes(q)
+      (i) => norm(i.slovak).includes(q) || norm(i.german).includes(q) || (i.notes ? norm(i.notes).includes(q) : false)
     );
   }, [collection, searchQuery]);
 
