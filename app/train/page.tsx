@@ -8,6 +8,11 @@ import { sm2 } from '@/lib/sm2';
 
 type SessionStatus = 'selecting' | 'training' | 'complete';
 type AnswerStatus = 'unanswered' | 'correct' | 'wrong' | 'revealed';
+type CardRecord = { status: Exclude<AnswerStatus, 'unanswered'>; userAnswer: string };
+
+function stripPunct(s: string): string {
+  return s.normalize('NFD').replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
 
 export default function TrainPage() {
   const [status, setStatus] = useState<SessionStatus>('selecting');
@@ -16,7 +21,6 @@ export default function TrainPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [loadingData, setLoadingData] = useState(true);
 
-  // Session state
   const [cards, setCards] = useState<VocabItem[]>([]);
   const [cardIndex, setCardIndex] = useState(0);
   const [answer, setAnswer] = useState('');
@@ -25,9 +29,31 @@ export default function TrainPage() {
   const [wrongCount, setWrongCount] = useState(0);
   const [revealCount, setRevealCount] = useState(0);
 
+  // Per-card answers enable back navigation without re-triggering scoring
+  const [cardRecords, setCardRecords] = useState<Record<string, CardRecord>>({});
+  // IDs bookmarked for a second pass
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [round, setRound] = useState<'main' | 'saved'>('main');
+
   const answerRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [ttsLoading, setTtsLoading] = useState(false);
+
+  // Stable refs so the keyboard handler never closes over stale state
+  const cardsRef = useRef(cards);           cardsRef.current = cards;
+  const cardIndexRef = useRef(cardIndex);   cardIndexRef.current = cardIndex;
+  const answerRef2 = useRef(answer);        answerRef2.current = answer;
+  const answerStatusRef = useRef(answerStatus); answerStatusRef.current = answerStatus;
+  const cardRecordsRef = useRef(cardRecords);   cardRecordsRef.current = cardRecords;
+  const savedIdsRef = useRef(savedIds);         savedIdsRef.current = savedIds;
+  const roundRef = useRef(round);               roundRef.current = round;
+  const statusRef = useRef(status);             statusRef.current = status;
+
+  // Latest function refs (updated each render)
+  const checkAnswerRef = useRef<() => void>(() => {});
+  const revealAnswerRef = useRef<() => void>(() => {});
+  const advanceRef = useRef<() => void>(() => {});
+  const goBackRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     Promise.all([fetchCollections(), fetchSettings()]).then(([cols, s]) => {
@@ -41,8 +67,20 @@ export default function TrainPage() {
     const allItems = colls.flatMap((c) => c.items);
     if (order === 'random') return [...allItems].sort(() => Math.random() - 0.5);
     if (order === 'sequential') return [...allItems].sort((a, b) => a.createdAt - b.createdAt);
-    // spaced: cards with no nextReview come first, then by due date
     return [...allItems].sort((a, b) => (a.nextReview ?? 0) - (b.nextReview ?? 0));
+  }
+
+  function resetSession(builtCards: VocabItem[]) {
+    setCards(builtCards);
+    setCardIndex(0);
+    setAnswer('');
+    setAnswerStatus('unanswered');
+    setCorrectCount(0);
+    setWrongCount(0);
+    setRevealCount(0);
+    setCardRecords({});
+    setSavedIds(new Set());
+    setRound('main');
   }
 
   async function startTraining() {
@@ -54,29 +92,25 @@ export default function TrainPage() {
     await saveSettingsAPI(updated);
     const builtCards = buildCards(selected, settings.trainingOrder);
     if (builtCards.length === 0) return;
-    setCards(builtCards);
-    setCardIndex(0);
-    setAnswer('');
-    setAnswerStatus('unanswered');
-    setCorrectCount(0);
-    setWrongCount(0);
-    setRevealCount(0);
+    resetSession(builtCards);
     setStatus('training');
   }
 
+  // Focus answer input when on a new unanswered card
   useEffect(() => {
-    if (status === 'training') answerRef.current?.focus();
-  }, [status, cardIndex]);
+    if (status === 'training' && answerStatus === 'unanswered') {
+      answerRef.current?.focus();
+    }
+  }, [status, cardIndex, answerStatus]);
 
   const currentCard = cards[cardIndex] ?? null;
   const cardFront = settings?.cardFront ?? 'slovak';
   const frontText = currentCard ? (cardFront === 'slovak' ? currentCard.slovak : currentCard.german) : '';
-  const backText = currentCard ? (cardFront === 'slovak' ? currentCard.german : currentCard.slovak) : '';
+  const backText  = currentCard ? (cardFront === 'slovak' ? currentCard.german  : currentCard.slovak)  : '';
 
   async function applySpacedRepetition(card: VocabItem, quality: 0 | 5) {
     if (settings?.trainingOrder !== 'spaced') return;
     const updatedItem = sm2(card, quality);
-    // Find which collection this card belongs to and update it
     const col = collections.find((c) => c.items.some((i) => i.id === card.id));
     if (!col) return;
     const updatedCol = { ...col, items: col.items.map((i) => (i.id === updatedItem.id ? updatedItem : i)) };
@@ -84,35 +118,85 @@ export default function TrainPage() {
     setCollections((prev) => prev.map((c) => (c.id === col.id ? updatedCol : c)));
   }
 
-  async function checkAnswer() {
-    if (!currentCard || answerStatus !== 'unanswered') return;
-    const correct = answer.trim().toLowerCase() === backText.trim().toLowerCase();
-    if (correct) {
-      setAnswerStatus('correct');
-      setCorrectCount((n) => n + 1);
-      await applySpacedRepetition(currentCard, 5);
+  /** Navigate to a card index, restoring its recorded answer state if any. */
+  function navigateTo(index: number, deck?: VocabItem[]) {
+    const d = deck ?? cardsRef.current;
+    const card = d[index];
+    if (!card) return;
+    setCardIndex(index);
+    const rec = cardRecordsRef.current[card.id];
+    if (rec) {
+      setAnswer(rec.userAnswer);
+      setAnswerStatus(rec.status);
     } else {
-      setAnswerStatus('wrong');
-      setWrongCount((n) => n + 1);
-      await applySpacedRepetition(currentCard, 0);
-    }
-  }
-
-  async function revealAnswer() {
-    if (!currentCard || answerStatus !== 'unanswered') return;
-    setAnswerStatus('revealed');
-    setRevealCount((n) => n + 1);
-    await applySpacedRepetition(currentCard, 0);
-  }
-
-  function advance() {
-    if (cardIndex + 1 >= cards.length) {
-      setStatus('complete');
-    } else {
-      setCardIndex((i) => i + 1);
       setAnswer('');
       setAnswerStatus('unanswered');
     }
+  }
+
+  const checkAnswer = async () => {
+    const card = cardsRef.current[cardIndexRef.current];
+    if (!card || answerStatusRef.current !== 'unanswered') return;
+    const correct = stripPunct(answerRef2.current) === stripPunct(backText);
+    const newStatus: AnswerStatus = correct ? 'correct' : 'wrong';
+    setAnswerStatus(newStatus);
+    setCardRecords((prev) => ({ ...prev, [card.id]: { status: newStatus, userAnswer: answerRef2.current } }));
+    if (correct) setCorrectCount((n) => n + 1);
+    else setWrongCount((n) => n + 1);
+    await applySpacedRepetition(card, correct ? 5 : 0);
+  };
+  checkAnswerRef.current = checkAnswer;
+
+  const revealAnswer = async () => {
+    const card = cardsRef.current[cardIndexRef.current];
+    if (!card || answerStatusRef.current !== 'unanswered') return;
+    setAnswerStatus('revealed');
+    setCardRecords((prev) => ({ ...prev, [card.id]: { status: 'revealed', userAnswer: answerRef2.current } }));
+    setRevealCount((n) => n + 1);
+    await applySpacedRepetition(card, 0);
+  };
+  revealAnswerRef.current = revealAnswer;
+
+  const advance = () => {
+    const deck = cardsRef.current;
+    const idx  = cardIndexRef.current;
+    if (idx + 1 >= deck.length) {
+      const sIds = savedIdsRef.current;
+      if (roundRef.current === 'main' && sIds.size > 0) {
+        // Start saved round: clear those cards' records so they can be re-answered
+        const savedDeck = deck.filter((c) => sIds.has(c.id));
+        setCardRecords((prev) => {
+          const next = { ...prev };
+          for (const c of savedDeck) delete next[c.id];
+          return next;
+        });
+        setCards(savedDeck);
+        setCardIndex(0);
+        setAnswer('');
+        setAnswerStatus('unanswered');
+        setSavedIds(new Set());
+        setRound('saved');
+      } else {
+        setStatus('complete');
+      }
+    } else {
+      navigateTo(idx + 1);
+    }
+  };
+  advanceRef.current = advance;
+
+  const goBack = () => {
+    if (cardIndexRef.current > 0) navigateTo(cardIndexRef.current - 1);
+  };
+  goBackRef.current = goBack;
+
+  function toggleSaved() {
+    if (!currentCard) return;
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(currentCard.id)) next.delete(currentCard.id); else next.add(currentCard.id);
+      return next;
+    });
   }
 
   const playTts = useCallback(async () => {
@@ -125,13 +209,45 @@ export default function TrainPage() {
     finally { setTtsLoading(false); }
   }, [currentCard, ttsLoading]);
 
+  // Keyboard handler — registered once, reads current values via refs
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (statusRef.current !== 'training') return;
+      const inInput = (e.target as HTMLElement)?.tagName?.toLowerCase() === 'input';
+
+      if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+        // Enter in the answer input → check (handled by the input's own onKeyDown)
+        // Enter elsewhere → do nothing (user must click Continue explicitly)
+        return;
+      }
+
+      if (e.ctrlKey && e.key === ' ') {
+        e.preventDefault();
+        revealAnswerRef.current();
+        return;
+      }
+
+      if (!inInput) {
+        if (e.key === 'ArrowLeft')  { e.preventDefault(); goBackRef.current(); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); advanceRef.current(); }
+        // Space advances when answered
+        if (e.key === ' ' && answerStatusRef.current !== 'unanswered') {
+          e.preventDefault();
+          advanceRef.current();
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
   function toggleCollection(id: string) {
     setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   }
 
   if (loadingData) return <div className="flex-1 flex items-center justify-center text-zinc-500">Loading…</div>;
 
-  // Selector screen
+  // ── Selector screen ───────────────────────────────────────────────────────────
   if (status === 'selecting') {
     return (
       <div className="max-w-xl mx-auto w-full px-4 py-10">
@@ -163,7 +279,7 @@ export default function TrainPage() {
     );
   }
 
-  // Complete screen
+  // ── Complete screen ───────────────────────────────────────────────────────────
   if (status === 'complete') {
     const total = correctCount + wrongCount + revealCount;
     const pct = total > 0 ? Math.round((correctCount / total) * 100) : 0;
@@ -200,13 +316,7 @@ export default function TrainPage() {
             onClick={() => {
               const selected = collections.filter((c) => selectedIds.includes(c.id));
               const builtCards = buildCards(selected, settings!.trainingOrder);
-              setCards(builtCards);
-              setCardIndex(0);
-              setAnswer('');
-              setAnswerStatus('unanswered');
-              setCorrectCount(0);
-              setWrongCount(0);
-              setRevealCount(0);
+              resetSession(builtCards);
               setStatus('training');
             }}
             className="px-6 py-2.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 font-medium rounded-xl transition-colors"
@@ -218,21 +328,36 @@ export default function TrainPage() {
     );
   }
 
-  // Training card screen
+  // ── Training card screen ──────────────────────────────────────────────────────
+  const isSaved = currentCard ? savedIds.has(currentCard.id) : false;
+
   return (
     <div className="flex flex-col flex-1 items-center justify-start px-4 py-8">
+
+      {/* Round badge */}
+      {round === 'saved' && (
+        <div className="w-full max-w-xl mb-3">
+          <span className="inline-block px-3 py-1 bg-orange-900/40 border border-orange-700/50 text-orange-300 text-xs font-semibold rounded-full tracking-wide">
+            Round 2 — Saved Words
+          </span>
+        </div>
+      )}
+
       {/* Progress */}
       <div className="w-full max-w-xl mb-6">
         <div className="flex items-center justify-between text-sm text-zinc-400 mb-2">
           <span>Card {cardIndex + 1} / {cards.length}</span>
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
+            {round === 'main' && savedIds.size > 0 && (
+              <span className="text-orange-400 text-xs">★ {savedIds.size} saved</span>
+            )}
             <span className="text-green-400">{correctCount} ✓</span>
             <span className="text-red-400">{wrongCount} ✗</span>
             {revealCount > 0 && <span className="text-zinc-400">{revealCount} shown</span>}
           </div>
         </div>
         <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-          <div className="h-full bg-orange-500 rounded-full transition-all duration-300" style={{ width: `${(cardIndex / cards.length) * 100}%` }} />
+          <div className="h-full bg-orange-500 rounded-full transition-all duration-300" style={{ width: `${((cardIndex + (answerStatus !== 'unanswered' ? 1 : 0)) / cards.length) * 100}%` }} />
         </div>
       </div>
 
@@ -242,20 +367,31 @@ export default function TrainPage() {
           <span className="text-xs font-medium uppercase tracking-widest text-zinc-400">
             {cardFront === 'slovak' ? 'Slovak' : 'German'}
           </span>
-          <button
-            onClick={playTts}
-            disabled={ttsLoading}
-            className="text-xl text-zinc-400 hover:text-zinc-700 transition-colors disabled:opacity-40"
-            title="Play Slovak pronunciation"
-          >
-            {ttsLoading ? '⟳' : '🔊'}
-          </button>
+          <div className="flex items-center gap-2">
+            {round === 'main' && (
+              <button
+                onClick={toggleSaved}
+                className={`text-lg transition-colors ${isSaved ? 'text-orange-400' : 'text-zinc-300 hover:text-orange-300'}`}
+                title={isSaved ? 'Remove from saved' : 'Save for later'}
+              >
+                {isSaved ? '★' : '☆'}
+              </button>
+            )}
+            <button
+              onClick={playTts}
+              disabled={ttsLoading}
+              className="text-xl text-zinc-400 hover:text-zinc-700 transition-colors disabled:opacity-40"
+              title="Play pronunciation"
+            >
+              {ttsLoading ? <span className="animate-spin inline-block">⟳</span> : '🔊'}
+            </button>
+          </div>
         </div>
         <p className="text-2xl sm:text-4xl font-bold text-zinc-900 text-center mt-4 mb-2 break-words">{frontText}</p>
         {currentCard?.notes && <p className="text-sm text-zinc-400 text-center mt-2">{currentCard.notes}</p>}
       </div>
 
-      {/* Answer area */}
+      {/* Answer / result area */}
       <div className="w-full max-w-xl">
         {answerStatus === 'unanswered' ? (
           <div className="flex flex-col gap-2">
@@ -281,12 +417,12 @@ export default function TrainPage() {
               onClick={revealAnswer}
               className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors text-center py-1"
             >
-              Show answer
+              Show answer <span className="text-zinc-700 text-xs ml-1">Ctrl+Space</span>
             </button>
           </div>
         ) : (
           <div className={`rounded-xl border p-4 mb-4 ${
-            answerStatus === 'correct' ? 'bg-green-900/30 border-green-700/50'
+            answerStatus === 'correct'  ? 'bg-green-900/30 border-green-700/50'
             : answerStatus === 'revealed' ? 'bg-zinc-800/60 border-zinc-700'
             : 'bg-red-900/30 border-red-700/50'
           }`}>
@@ -309,16 +445,30 @@ export default function TrainPage() {
               </div>
             )}
             <button
-              autoFocus
               onClick={advance}
-              onKeyDown={(e) => { if (e.key === 'Enter') advance(); }}
               className="mt-1 px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-medium rounded-lg transition-colors"
             >
-              Continue →
+              {cardIndex + 1 >= cards.length
+                ? (round === 'main' && savedIds.size > 0 ? `Review ${savedIds.size} saved →` : 'Finish')
+                : 'Continue →'}
             </button>
+            <span className="ml-3 text-zinc-600 text-xs">Space / →</span>
           </div>
         )}
       </div>
+
+      {/* Back / forward navigation */}
+      {cardIndex > 0 && (
+        <div className="w-full max-w-xl mt-4 flex justify-start">
+          <button
+            onClick={goBack}
+            className="text-sm text-zinc-600 hover:text-zinc-300 transition-colors flex items-center gap-1"
+            title="Go back (←)"
+          >
+            ← Back
+          </button>
+        </div>
+      )}
     </div>
   );
 }
